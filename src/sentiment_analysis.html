@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' http://127.0.0.1:5000">
+    <title>Sentiment Analysis</title>
+    <style>
+        :root {
+            --bg-color: #f5f5f5;
+            --container-bg: #ffffff;
+            --text-color: #333333;
+            --border-color: #dddddd;
+            --primary-color: #4285f4;
+            --hover-color: #357abd;
+            --shadow-color: rgba(0,0,0,0.1);
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #1a1a1a;
+            --container-bg: #2d2d2d;
+            --text-color: #ffffff;
+            --border-color: #404040;
+            --primary-color: #5c9aff;
+            --hover-color: #7eb1ff;
+            --shadow-color: rgba(0,0,0,0.3);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: all 0.3s ease;
+        }
+
+        .container {
+            background-color: var(--container-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px var(--shadow-color);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .theme-switch {
+            position: relative;
+            width: 60px;
+            height: 30px;
+        }
+
+        .theme-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 30px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: var(--primary-color);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(30px);
+        }
+
+        textarea {
+            width: 100%;
+            padding: 15px;
+            margin: 10px 0;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            resize: vertical;
+            font-family: inherit;
+            font-size: 16px;
+            line-height: 1.5;
+            min-height: 120px;
+            background-color: var(--container-bg);
+            color: var(--text-color);
+            transition: border-color 0.3s ease;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            background-color: var(--hover-color);
+            transform: translateY(-2px);
+        }
+
+        button:disabled {
+            background-color: var(--border-color);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        #result {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 8px;
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .positive { 
+            background-color: #e8f5e9; 
+            color: #2e7d32; 
+            border-left: 4px solid #2e7d32; 
+        }
+        .negative { 
+            background-color: #ffebee; 
+            color: #c62828; 
+            border-left: 4px solid #c62828; 
+        }
+        .neutral { 
+            background-color: #e3f2fd; 
+            color: #1565c0; 
+            border-left: 4px solid #1565c0; 
+        }
+        .irrelevant { 
+            background-color: #f5f5f5; 
+            color: #616161; 
+            border-left: 4px solid #616161; 
+        }
+        .error { 
+            background-color: #ffebee; 
+            color: #c62828; 
+            border-left: 4px solid #c62828; 
+        }
+
+        [data-theme="dark"] .positive { 
+            background-color: rgba(46, 125, 50, 0.2); 
+        }
+        [data-theme="dark"] .negative { 
+            background-color: rgba(198, 40, 40, 0.2); 
+        }
+        [data-theme="dark"] .neutral { 
+            background-color: rgba(21, 101, 192, 0.2); 
+        }
+        [data-theme="dark"] .irrelevant { 
+            background-color: rgba(97, 97, 97, 0.2); 
+        }
+        [data-theme="dark"] .error { 
+            background-color: rgba(198, 40, 40, 0.2); 
+        }
+
+        .spinner {
+            display: none;
+            width: 40px;
+            height: 40px;
+            margin: 20px auto;
+            border: 4px solid var(--border-color);
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .sentiment-emoji {
+            font-size: 2em;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+
+        .confidence-bar {
+            height: 20px;
+            background-color: var(--border-color);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            background-color: var(--primary-color);
+            transition: width 0.5s ease;
+        }
+
+        .server-status {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            border-radius: 8px;
+            background: var(--container-bg);
+            box-shadow: 0 2px 8px var(--shadow-color);
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); }
+            to { transform: translateX(0); }
+        }
+
+        .instructions {
+            margin-top: 20px;
+            padding: 20px;
+            background-color: var(--container-bg);
+            border-left: 4px solid #ff9800;
+            margin-bottom: 20px;
+            display: none;
+            border-radius: 8px;
+        }
+
+        .instructions code {
+            background-color: var(--bg-color);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+
+        .char-count {
+            float: right;
+            color: var(--text-color);
+            opacity: 0.7;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Sentiment Analysis</h1>
+            <label class="theme-switch">
+                <input type="checkbox" id="theme-toggle">
+                <span class="slider"></span>
+            </label>
+        </div>
+        <div id="instructions" class="instructions">
+            <h3>⚠️ Server Not Connected</h3>
+            <p>Please follow these steps:</p>
+            <ol>
+                <li>Open Command Prompt or PowerShell</li>
+                <li>Navigate to your project folder: <br>
+                    <code>cd C:\Users\DELL\Downloads\bigdataproject</code></li>
+                <li>Run the server: <br>
+                    <code>python sentiment_api.py</code></li>
+                <li>Wait for "Server started" message</li>
+                <li>Click the "Check Connection" button below</li>
+            </ol>
+            <button onclick="checkServerStatus()" class="retry-button">Check Connection</button>
+        </div>
+        <p>Enter your text below to analyze its sentiment:</p>
+        <div class="char-count">0 / 500</div>
+        <textarea id="text-input" placeholder="Type or paste your text here..." spellcheck="true" maxlength="500"></textarea>
+        <button onclick="analyzeSentiment()" id="analyze-btn">Analyze Sentiment</button>
+        <div id="spinner" class="spinner"></div>
+        <div id="result"></div>
+    </div>
+    <div id="server-status" class="server-status">Server Status: Checking...</div>
+
+    <script>
+        const API_URL = 'http://127.0.0.1:5000';
+        
+        // Theme toggle
+        const themeToggle = document.getElementById('theme-toggle');
+        const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)');
+        
+        // Set initial theme
+        if (localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && prefersDarkScheme.matches)) {
+            document.body.setAttribute('data-theme', 'dark');
+            themeToggle.checked = true;
+        }
+
+        themeToggle.addEventListener('change', function() {
+            if (this.checked) {
+                document.body.setAttribute('data-theme', 'dark');
+                localStorage.setItem('theme', 'dark');
+            } else {
+                document.body.removeAttribute('data-theme');
+                localStorage.setItem('theme', 'light');
+            }
+        });
+
+        // Character counter
+        const textarea = document.getElementById('text-input');
+        const charCount = document.querySelector('.char-count');
+
+        textarea.addEventListener('input', function() {
+            const remaining = this.value.length;
+            charCount.textContent = `${remaining} / 500`;
+        });
+        
+        // Server status check
+        async function checkServerStatus() {
+            const statusDiv = document.getElementById('server-status');
+            const instructionsDiv = document.getElementById('instructions');
+            const analyzeBtn = document.getElementById('analyze-btn');
+            statusDiv.style.display = 'block';
+            
+            try {
+                const response = await fetch(`${API_URL}/predict`, {
+                    method: 'OPTIONS',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Origin': 'null'
+                    },
+                    mode: 'cors'
+                });
+                
+                if (response.ok) {
+                    statusDiv.textContent = 'Server Status: Online ✅';
+                    statusDiv.className = 'server-status online';
+                    instructionsDiv.style.display = 'none';
+                    analyzeBtn.disabled = false;
+                } else {
+                    throw new Error('Server not responding');
+                }
+            } catch (error) {
+                statusDiv.textContent = 'Server Status: Offline ❌';
+                statusDiv.className = 'server-status offline';
+                instructionsDiv.style.display = 'block';
+                analyzeBtn.disabled = true;
+            }
+        }
+
+        // Check server status on page load and every 5 seconds
+        window.addEventListener('load', checkServerStatus);
+        setInterval(checkServerStatus, 5000);
+
+        function getEmojiForSentiment(sentiment) {
+            const emojis = {
+                'positive': '😊',
+                'negative': '😔',
+                'neutral': '😐',
+                'irrelevant': '🤔'
+            };
+            return emojis[sentiment.toLowerCase()] || '❓';
+        }
+
+        async function analyzeSentiment() {
+            const textInput = document.getElementById('text-input');
+            const button = document.getElementById('analyze-btn');
+            const spinner = document.getElementById('spinner');
+            const result = document.getElementById('result');
+
+            if (!textInput.value.trim()) {
+                showError('Please enter some text to analyze.');
+                return;
+            }
+
+            button.disabled = true;
+            spinner.style.display = 'block';
+            result.style.display = 'none';
+
+            try {
+                const response = await fetch(`${API_URL}/predict`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'Origin': 'null'
+                    },
+                    mode: 'cors',
+                    body: JSON.stringify({ text: textInput.value })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                if (data.error) {
+                    showError(data.error);
+                    return;
+                }
+
+                result.style.display = 'block';
+                result.className = data.sentiment.toLowerCase();
+                result.innerHTML = `
+                    <h3>Analysis Results</h3>
+                    <p>
+                        <span class="sentiment-emoji">${getEmojiForSentiment(data.sentiment)}</span>
+                        <strong>Sentiment:</strong> ${data.sentiment}
+                    </p>
+                    <p><strong>Confidence:</strong> ${(data.confidence * 100).toFixed(2)}%</p>
+                    <div class="confidence-bar">
+                        <div class="confidence-fill" style="width: ${(data.confidence * 100).toFixed(2)}%"></div>
+                    </div>
+                    <p><strong>Processed Text:</strong> ${data.debug_info.processed_text}</p>
+                    <div class="sentiment-details">
+                        <p><strong>All Sentiment Probabilities:</strong></p>
+                        <ul>
+                            ${Object.entries(data.all_sentiments)
+                                .sort((a, b) => b[1] - a[1])
+                                .map(([sentiment, prob]) => 
+                                    `<li>${sentiment}: ${(prob * 100).toFixed(2)}%</li>`
+                                ).join('')}
+                        </ul>
+                    </div>
+                `;
+            } catch (error) {
+                showError('Cannot connect to server. Please make sure the server is running at http://127.0.0.1:5000');
+                console.error('Error:', error);
+            } finally {
+                button.disabled = false;
+                spinner.style.display = 'none';
+            }
+        }
+
+        function showError(message) {
+            const result = document.getElementById('result');
+            result.style.display = 'block';
+            result.className = 'error';
+            result.innerHTML = `<p>Error: ${message}</p>`;
+        }
+
+        // Handle Enter key
+        document.getElementById('text-input').addEventListener('keypress', function(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                analyzeSentiment();
+            }
+        });
+    </script>
+</body>
+</html> 
